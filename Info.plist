@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>SecondDock</string>
+  <key>CFBundleIdentifier</key><string>com.seconddock.app</string>
+  <key>CFBundleName</key><string>SecondDock</string>
+  <key>CFBundleVersion</key><string>0.1.0</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSUIElement</key><true/>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>SecondDock menampilkan event kalender di dock.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key><string>SecondDock membaca level baterai perangkat Bluetooth yang terhubung untuk menampilkannya di dock.</string>
+  <key>NSRemindersFullAccessUsageDescription</key><string>SecondDock menampilkan reminder di dock.</string>
+</dict>
+</plist>

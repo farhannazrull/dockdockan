@@ -1,0 +1,129 @@
+import AppKit
+import SwiftUI
+
+/// Kaca dock: NSVisualEffectView adaptif — .hudWindow di dark mode
+/// (material paling dekat Dock asli), .underWindowBackground di light.
+struct GlassBackground: View {
+    @Environment(\.colorScheme) var scheme
+    @Environment(\.theme) var theme
+    @Environment(\.glassFallback) var fallback
+
+    var body: some View {
+        if let fallback {
+            RoundedRectangle(cornerRadius: theme.s(26), style: .continuous)
+                .fill(fallback)
+        } else {
+            EffectView(scheme: scheme, radius: theme.s(26))
+        }
+    }
+}
+
+public struct GlassFallbackKey: EnvironmentKey {
+    public static let defaultValue: Color? = nil
+}
+
+extension EnvironmentValues {
+    public var glassFallback: Color? {
+        get { self[GlassFallbackKey.self] }
+        set { self[GlassFallbackKey.self] = newValue }
+    }
+}
+
+private struct EffectView: NSViewRepresentable {
+    let scheme: ColorScheme
+    let radius: CGFloat
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.masksToBounds = true
+        view.layer?.borderWidth = 1
+        view.material = scheme == .dark ? .hudWindow : .underWindowBackground
+        view.layer?.cornerRadius = radius
+        view.layer?.borderColor = NSColor.white.withAlphaComponent(0.18).cgColor
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
+/// Urutan persis referensi. Tanpa Spacer — semua gap = theme gap.
+/// Layar sempit: skala di-cap controller (tidak pernah squash di bawah minWidth).
+public struct DockView: View {
+    @Environment(\.theme) private var theme
+    @ObservedObject private var focus: FocusViewModel
+    @ObservedObject private var calendar: CalendarViewModel
+    @ObservedObject private var battery: BatteryViewModel
+
+    public init(focus: FocusViewModel = FocusViewModel.preview,
+                calendar: CalendarViewModel = CalendarViewModel.preview,
+                battery: BatteryViewModel = BatteryViewModel.preview) {
+        _focus = ObservedObject(wrappedValue: focus)
+        _calendar = ObservedObject(wrappedValue: calendar)
+        _battery = ObservedObject(wrappedValue: battery)
+    }
+
+    public var body: some View {
+        ZStack {
+            GlassBackground()
+                .shadow(color: Color.black.opacity(0.35),
+                        radius: theme.s(18), x: 0, y: theme.s(6))
+            HStack(spacing: theme.s(16)) {
+                AppIcon(bundleID: "com.apple.finder", running: true)
+                StockWidget(symbol: "AAPL", price: "333.08", change: "+0.24%",
+                            points: PreviewData.sparkAAPL)
+                FolderTile(letter: "P", path: NSHomeDirectory() + "/Projects")
+                AppIcon(bundleID: "com.apple.MobileSMS", badge: 3, running: false)
+                NowPlayingWidget(title: "The Entertainer", artist: "Scott Joplin",
+                                 elapsed: "0:00", total: "5:06", fraction: 0, isPlaying: false)
+                FocusWidget(remaining: focus.remainingText,
+                              progress: focus.progress,
+                              label: focus.label,
+                              isSuccess: focus.phase == .finished,
+                              onToggle: { focus.toggle() },
+                              onReset: { focus.reset() })
+                CalendarWidget(weekday: calendar.state.weekday,
+                               day: calendar.state.day,
+                               title: calendar.state.title,
+                               time: calendar.state.time,
+                               dotColor: calendar.state.dotColor,
+                               meetingURL: calendar.state.meetingURL,
+                               mode: calendar.state.mode,
+                               onAllow: { calendar.allow() },
+                               onJoin: { calendar.join() })
+                    .onAppear { calendar.appear() }
+                BatteryWidget(rings: battery.rings)
+                    .onAppear { battery.appear() }
+                RevenueWidget(label: "Studio", value: "$3.9K", points: PreviewData.sparkRevenue)
+                NoteWidget(line1: "Ship it.", line2: "Take a walk.")
+                DividerTile()
+                PagedAppsView(apps: ["com.apple.Safari", "com.figma.Desktop"])
+            }
+            .padding(.leading, theme.s(16))
+            .padding(.trailing, theme.s(18))
+            .padding(.vertical, theme.cardPadding)
+        }
+        .frame(height: theme.barHeight)
+        .fixedSize(horizontal: true, vertical: true)
+        .padding(.vertical, theme.s(12))
+    }
+}
+
+struct DockView_Previews: PreviewProvider {
+    static var previews: some View {
+        ForEach([0.6, 1.0, 1.6], id: \.self) { scale in
+            DockView()
+                .environment(\.theme, Theme(scale: scale))
+                .padding()
+                .background(Color.black)
+                .previewDisplayName("Dock \(scale) dark")
+            DockView()
+                .environment(\.theme, Theme(scale: scale))
+                .preferredColorScheme(.light)
+                .padding()
+                .previewDisplayName("Dock \(scale) light")
+        }
+    }
+}
