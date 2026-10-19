@@ -32,8 +32,13 @@ enum AppleScriptSource {
     }
 
     static func currentTrack() -> Info? {
-        if let info = music() { return info }
-        return spotify()
+        if isInstalled("com.apple.Music"), let info = music() { return info }
+        if isInstalled("com.spotify.client"), let info = spotify() { return info }
+        return nil
+    }
+
+    private static func isInstalled(_ bundleID: String) -> Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
     }
 
     private static func script(_ body: String) -> NSAppleScript? {
@@ -42,17 +47,28 @@ enum AppleScriptSource {
 
     /// Membaca daftar AppleScript sebagai angka/teks langsung lewat
     /// NSAppleEventDescriptor, tanpa parse string (aman dari locale).
-    private static func fields(from source: String, count: Int) -> [Any]? {
+    /// Daftar AppleScript 1-based dan item dikembalikan sebagai
+    /// NSAppleEventDescriptor (bukan String/NSNumber langsung).
+    private static func fields(from source: String, count: Int) -> [NSAppleEventDescriptor]? {
         guard let script = NSAppleScript(source: source) else { return nil }
         var error: NSDictionary?
         let descriptor = script.executeAndReturnError(&error)
         if let error, (error[NSAppleScript.errorNumber] as? Int ?? 0) != 0 { return nil }
         guard descriptor.numberOfItems == count else { return nil }
-        return (0 ..< count).map { descriptor.atIndex($0) }
+        let items = (1 ... count).compactMap { descriptor.atIndex($0) }
+        guard items.count == count else { return nil }
+        return items
     }
 
-    private static func text(_ value: Any?) -> String { (value as? String) ?? "" }
-    private static func number(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }
+    private static func text(_ value: NSAppleEventDescriptor?) -> String {
+        value?.stringValue ?? ""
+    }
+
+    private static func number(_ value: NSAppleEventDescriptor?) -> Double {
+        guard let value else { return 0 }
+        if let string = value.stringValue, let parsed = Double(string) { return parsed }
+        return value.doubleValue
+    }
 
     private static func music() -> Info? {
         let source = """
