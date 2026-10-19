@@ -45,6 +45,7 @@ public final class NowPlayingViewModel: ObservableObject {
     private var observers: [NSObjectProtocol] = []
     private var didAppear = false
     private var artworkKey = ""
+    private var artworkImage: NSImage?
     private var artworkTask: Task<Void, Never>?
 
     // Interpolasi posisi.
@@ -124,8 +125,8 @@ public final class NowPlayingViewModel: ObservableObject {
         let key = "\(info.source)|\(info.artist)|\(info.title)"
         guard key != artworkKey else { return }
         artworkKey = key
+        artworkImage = nil
         artworkTask?.cancel()
-        track?.artwork = nil
         artworkTask = Task { [weak self] in
             let data = await Task.detached(priority: .utility) {
                 AppleScriptSource.artworkData(for: info.source)
@@ -133,6 +134,7 @@ public final class NowPlayingViewModel: ObservableObject {
             guard let data, let image = NSImage(data: data) else { return }
             await MainActor.run {
                 guard let self, self.artworkKey == key else { return }
+                self.artworkImage = image
                 self.track?.artwork = image
             }
         }
@@ -179,10 +181,15 @@ public final class NowPlayingViewModel: ObservableObject {
                 duration = 0
             }
             artworkKey = ""
+            artworkImage = nil
             return
         }
+        // Polling membentuk track baru tiap 2 detik; sampul yang sudah termuat
+        // harus ditempelkan lagi supaya tidak berkedip hilang.
+        let key = "\(info.source)|\(info.artist)|\(info.title)"
+        let keptArtwork = key == artworkKey ? artworkImage : nil
         track = NowPlayingTrack(title: info.title, artist: info.artist,
-                                artwork: info.artwork, elapsed: info.elapsed,
+                                artwork: keptArtwork, elapsed: info.elapsed,
                                 duration: info.duration, isPlaying: info.isPlaying)
         loadArtwork(for: info)
         duration = info.duration
