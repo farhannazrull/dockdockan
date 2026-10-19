@@ -58,7 +58,6 @@ enum AppleScriptSource {
         let source = """
         if application "Music" is not running then return {""}
         tell application "Music"
-            if it is not running then return {""}
             set t to current track
             return {name of t, artist of t, (duration of t as real), \
         (player position as real), (player state as string)}
