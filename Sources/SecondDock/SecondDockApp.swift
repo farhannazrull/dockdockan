@@ -105,6 +105,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         focusItem.submenu = focusSubmenu
         menu.addItem(focusItem)
 
+        menu.addItem(NSMenuItem(title: "Stock symbol...",
+                                action: #selector(stockSymbol), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Revenue...",
+                                action: #selector(revenueForm), keyEquivalent: ""))
+
         let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLogin(_:)), keyEquivalent: "")
         login.state = LaunchAtLogin.enabled ? .on : .off
         menu.addItem(login)
@@ -126,6 +131,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func setFocusLength(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Int else { return }
         panelController?.focus.minutes = minutes
+        panelController?.refresh(scale: scale)
+    }
+
+    @objc private func stockSymbol() {
+        panelController?.stock.promptForSymbol()
+        panelController?.refresh(scale: scale)
+    }
+
+    @objc private func revenueForm() {
+        panelController?.revenue.presentForm()
         panelController?.refresh(scale: scale)
     }
 

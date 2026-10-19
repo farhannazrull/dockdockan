@@ -59,19 +59,25 @@ public struct DockView: View {
     @ObservedObject private var store: DockStore
     @ObservedObject private var note: NoteViewModel
     @ObservedObject private var nowPlaying: NowPlayingViewModel
+    @ObservedObject private var stock: StockViewModel
+    @ObservedObject private var revenue: RevenueViewModel
 
     public init(focus: FocusViewModel = FocusViewModel.preview,
                 calendar: CalendarViewModel = CalendarViewModel.preview,
                 battery: BatteryViewModel = BatteryViewModel.preview,
                 store: DockStore = DockStore.preview,
                 note: NoteViewModel = NoteViewModel.preview,
-                nowPlaying: NowPlayingViewModel = NowPlayingViewModel.preview) {
+                nowPlaying: NowPlayingViewModel = NowPlayingViewModel.preview,
+                stock: StockViewModel = StockViewModel.preview,
+                revenue: RevenueViewModel = RevenueViewModel.preview) {
         _focus = ObservedObject(wrappedValue: focus)
         _calendar = ObservedObject(wrappedValue: calendar)
         _battery = ObservedObject(wrappedValue: battery)
         _store = ObservedObject(wrappedValue: store)
         _note = ObservedObject(wrappedValue: note)
         _nowPlaying = ObservedObject(wrappedValue: nowPlaying)
+        _stock = ObservedObject(wrappedValue: stock)
+        _revenue = ObservedObject(wrappedValue: revenue)
     }
 
     public var body: some View {
@@ -94,8 +100,17 @@ public struct DockView: View {
                         radius: theme.s(18), x: 0, y: theme.s(6))
             HStack(spacing: theme.s(16)) {
                 appIcon(store.leadingApps.first ?? "com.apple.finder")
-                StockWidget(symbol: "AAPL", price: "333.08", change: "+0.24%",
-                            points: PreviewData.sparkAAPL)
+                StockWidget(symbol: stock.state.symbol,
+                            price: stock.state.priceText,
+                            change: stock.state.changeText,
+                            points: stock.state.points,
+                            tone: stock.state.tone,
+                            mode: stock.state.mode,
+                            isStale: stock.state.isStale,
+                            onRetry: { stock.refresh() },
+                            onAddKey: { stock.promptForAPIKey() },
+                            onChangeSymbol: { stock.promptForSymbol() })
+                    .onAppear { stock.appear() }
                 FolderTile(letter: "P", path: store.folderPath,
                            onOpen: { store.openFolder() })
                 appIcon(store.leadingApps.count > 1 ? store.leadingApps[1] : "",
@@ -134,7 +149,13 @@ public struct DockView: View {
                     .onAppear { calendar.appear() }
                 BatteryWidget(rings: battery.rings)
                     .onAppear { battery.appear() }
-                RevenueWidget(label: "Studio", value: "$3.9K", points: PreviewData.sparkRevenue)
+                RevenueWidget(label: revenue.state.project,
+                              value: revenue.state.amountText,
+                              points: revenue.state.points,
+                              rangeLabel: revenue.state.rangeLabel,
+                              isEmpty: revenue.state.isEmpty,
+                              onConnect: { revenue.presentForm() })
+                    .onAppear { revenue.appear() }
                 NoteWidget(note: note)
                 DividerTile()
                 PagedAppsView(apps: store.pagedApps, store: store)

@@ -56,42 +56,205 @@ struct Sparkline: View {
     }
 }
 
+/// Skeleton shimmer untuk state loading.
+private struct ShimmerBar: View {
+    let width: CGFloat
+    let height: CGFloat
+
+    @Environment(\.theme) private var theme
+    @Environment(\.colorScheme) private var scheme
+    @State private var phase: CGFloat = -1
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: theme.s(4), style: .continuous)
+        shape
+            .fill(theme.primaryGlyph(scheme).opacity(0.10))
+            .frame(width: width, height: height)
+            .overlay {
+                LinearGradient(colors: [.clear,
+                                        theme.primaryGlyph(scheme).opacity(0.18),
+                                        .clear],
+                               startPoint: .leading, endPoint: .trailing)
+                    .frame(width: width * 0.6)
+                    .offset(x: phase * width)
+            }
+            .clipShape(shape)
+            .onAppear {
+                withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
 struct StockWidget: View {
     let symbol: String
     let price: String
     let change: String
     let points: [Double]
-    var positive = true
+    var tone: StockChangeTone = .positive
+    var mode: StockCardMode = .value
+    var isStale = false
+    var onRetry: () -> Void = {}
+    var onAddKey: () -> Void = {}
+    var onChangeSymbol: () -> Void = {}
 
     @Environment(\.theme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// Lebar isi kartu referensi: kolom kiri 68.5 + gap 8 + sparkline 90.
+    private let contentWidth: CGFloat = 166.5
+    private let leftWidth: CGFloat = 68.5
+
+    private var contentHeight: CGFloat {
+        theme.lineTiny + theme.lineValue + theme.lineTiny
+    }
+
+    private var changeColor: Color {
+        switch tone {
+        case .positive: Theme.positiveGreen
+        case .negative: Theme.dangerRed
+        case .flat: theme.secondaryText(colorScheme)
+        }
+    }
 
     var body: some View {
         WidgetCard {
-            HStack(spacing: theme.s(8)) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(symbol)
-                        .font(theme.font(10, .medium))
-                        .foregroundStyle(theme.tinyText(colorScheme))
-                        .lineLimit(1)
-                        .frame(height: theme.lineTiny, alignment: .leading)
-                    Text(price)
-                        .font(theme.mono(20, .semibold))
-                        .lineLimit(1)
-                        .frame(height: theme.lineValue, alignment: .leading)
-                    Text(change)
-                        .font(theme.font(11))
-                        .foregroundStyle(positive ? Theme.positiveGreen : Theme.dangerRed)
-                        .lineLimit(1)
-                        .frame(height: theme.lineTiny, alignment: .leading)
+            if mode == .value || mode == .loading {
+                HStack(spacing: theme.s(8)) {
+                    leftColumn
+                        .frame(minWidth: theme.s(leftWidth), alignment: .leading)
+                    trailing
                 }
-                .fixedSize(horizontal: true, vertical: false)
-                Sparkline(values: points, color: Theme.positiveGreen, width: 90,
-                          height: theme.lineTiny + theme.lineValue + theme.lineTiny)
+                .opacity(isStale ? 0.55 : 1)
+            } else {
+                stateRow
+                    .frame(width: theme.s(contentWidth), height: contentHeight,
+                           alignment: .leading)
             }
         }
     }
 
-    @Environment(\.colorScheme) private var colorScheme
+    private var leftColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: theme.s(3)) {
+                Text(symbol)
+                    .font(theme.font(10, .medium))
+                    .foregroundStyle(theme.tinyText(colorScheme))
+                    .lineLimit(1)
+                if isStale {
+                    Image(systemName: "clock")
+                        .font(theme.font(8, .semibold))
+                        .foregroundStyle(theme.tinyText(colorScheme))
+                }
+            }
+            .frame(height: theme.lineTiny, alignment: .leading)
+
+            middle
+                .frame(height: theme.lineValue, alignment: .leading)
+
+            bottom
+                .frame(height: theme.lineTiny, alignment: .leading)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    @ViewBuilder
+    private var middle: some View {
+        if mode == .loading {
+            ShimmerBar(width: theme.s(62), height: theme.s(14))
+        } else {
+            Text(price)
+                .font(theme.mono(20, .semibold))
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private var bottom: some View {
+        if mode == .loading {
+            ShimmerBar(width: theme.s(40), height: theme.s(8))
+        } else {
+            Text(change)
+                .font(theme.font(11))
+                .foregroundStyle(changeColor)
+                .lineLimit(1)
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if mode == .loading {
+            ShimmerBar(width: theme.s(90), height: contentHeight)
+        } else {
+            Sparkline(values: points, color: Theme.positiveGreen, width: 90,
+                      height: contentHeight)
+        }
+    }
+
+    private var stateRow: some View {
+        HStack(spacing: theme.s(8)) {
+            Image(systemName: icon)
+                .font(theme.font(13, .semibold))
+                .foregroundStyle(theme.secondaryText(colorScheme))
+            // Dua baris supaya "Unknown symbol" tidak terpotong.
+            VStack(alignment: .leading, spacing: theme.s(2)) {
+                Text(label)
+                    .font(theme.font(12, .semibold))
+                    .lineLimit(1)
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(theme.font(10, .semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .foregroundStyle(theme.primaryGlyph(colorScheme).opacity(0.92))
+                        .padding(.horizontal, theme.s(7))
+                        .padding(.vertical, theme.s(2))
+                        .background(theme.primaryGlyph(colorScheme).opacity(0.12))
+                        .clipShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var icon: String {
+        switch mode {
+        case .error: "exclamationmark.triangle"
+        case .missingKey: "key.fill"
+        case .unknownSymbol: "questionmark.circle"
+        default: "questionmark.circle"
+        }
+    }
+
+    private var label: String {
+        switch mode {
+        case .error: "Can't load"
+        case .missingKey: "No API key"
+        case .unknownSymbol: "Unknown symbol"
+        default: ""
+        }
+    }
+
+    private var actionTitle: String {
+        switch mode {
+        case .error: "Retry"
+        case .missingKey: "Add"
+        case .unknownSymbol: "Change"
+        default: ""
+        }
+    }
+
+    private var action: () -> Void {
+        switch mode {
+        case .error: onRetry
+        case .missingKey: onAddKey
+        case .unknownSymbol: onChangeSymbol
+        default: {}
+        }
+    }
 }
 
 struct StockWidget_Previews: PreviewProvider {
@@ -105,6 +268,7 @@ struct StockWidget_Previews: PreviewProvider {
             .environment(\.theme, Theme(scale: 1))
             .preferredColorScheme(.light)
             .padding()
+            .background(Color.black)
             .previewDisplayName("Stock 1.0 light")
     }
 }

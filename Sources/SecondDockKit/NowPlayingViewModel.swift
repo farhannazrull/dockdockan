@@ -40,6 +40,7 @@ public final class NowPlayingViewModel: ObservableObject {
     public var sourceName: String { mediaRemote.isLoaded ? "MediaRemote" : "AppleScript" }
 
     private let mediaRemote: MediaRemoteBridge
+    private let isPreview: Bool
     private var tick: Timer?
     private var poll: Timer?
     private var observers: [NSObjectProtocol] = []
@@ -54,7 +55,8 @@ public final class NowPlayingViewModel: ObservableObject {
     private var baseTime: Date = Date()
     private var duration: Double = 0
 
-    public init() {
+    public init(isPreview: Bool = false) {
+        self.isPreview = isPreview
         mediaRemote = MediaRemoteBridge()
     }
 
@@ -68,7 +70,7 @@ public final class NowPlayingViewModel: ObservableObject {
     }
 
     public func appear() {
-        guard !didAppear else { return }
+        guard !isPreview, !didAppear else { return }
         didAppear = true
         refresh()
         startTicking()
@@ -211,7 +213,7 @@ public final class NowPlayingViewModel: ObservableObject {
 
     /// Pratinjau/render offscreen: tidak menyentuh MediaRemote.
     public static let preview: NowPlayingViewModel = {
-        let vm = NowPlayingViewModel()
+        let vm = NowPlayingViewModel(isPreview: true)
         vm.track = NowPlayingTrack(title: "The Entertainer", artist: "Scott Joplin",
                                    artwork: nil, elapsed: 0, duration: 306,
                                    isPlaying: false)

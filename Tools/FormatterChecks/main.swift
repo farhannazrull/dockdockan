@@ -27,6 +27,9 @@ check("compact-K", DockFormatters.compactCurrency(3900), "$3.9K")
 check("compact-K2", DockFormatters.compactCurrency(2400), "$2.4K")
 check("compact-small", DockFormatters.compactCurrency(999), "$999")
 check("compact-M", DockFormatters.compactCurrency(1_200_000), "$1.2M")
+check("compact-symbol", DockFormatters.compactCurrency(12_400, symbol: "€"), "€12.4K")
+check("compact-plain", DockFormatters.compactCurrency(950), "$950")
+check("compact-negative", DockFormatters.compactCurrency(-2_400), "-$2.4K")
 check("countdown-default", DockFormatters.countdown(25 * 60), "25:00")
 check("countdown-mid", DockFormatters.countdown(65), "1:05")
 check("countdown-zero", DockFormatters.countdown(0), "0:00")
@@ -150,6 +153,54 @@ func checkNotePersistence() {
     vm.save()
 }
 MainActor.assumeIsolated { checkNotePersistence() }
+
+// Jam bursa AS: 09:30-16:00 ET, Senin-Jumat.
+func checkMarketHours() {
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = TimeZone(identifier: "America/New_York")!
+    func at(_ day: Int, _ hour: Int, _ minute: Int) -> Date {
+        cal.date(from: DateComponents(year: 2024, month: 1, day: day,
+                                      hour: hour, minute: minute))!
+    }
+    check("market-preopen", StockMarket.isOpen(at(8, 9, 29)) ? "buka" : "tutup", "tutup")
+    check("market-open", StockMarket.isOpen(at(8, 9, 30)) ? "buka" : "tutup", "buka")
+    check("market-late", StockMarket.isOpen(at(8, 15, 59)) ? "buka" : "tutup", "buka")
+    check("market-close", StockMarket.isOpen(at(8, 16, 0)) ? "buka" : "tutup", "tutup")
+    check("market-saturday", StockMarket.isOpen(at(13, 12, 0)) ? "buka" : "tutup", "tutup")
+    check("market-sunday", StockMarket.isOpen(at(14, 12, 0)) ? "buka" : "tutup", "tutup")
+}
+checkMarketHours()
+
+// Konfigurasi stock/revenue harus bertahan lewat JSON (tanpa menyentuh disk).
+func checkStockRevenueConfig() {
+    let stock = StockConfig(symbol: "TSLA")
+    if let data = try? JSONEncoder().encode(stock),
+       let decoded = try? JSONDecoder().decode(StockConfig.self, from: data) {
+        check("stock-config-roundtrip", "\(decoded == stock)", "true")
+    } else {
+        check("stock-config-roundtrip", "gagal", "lolos")
+    }
+    check("stock-config-default", StockConfig.defaults.symbol, "AAPL")
+
+    let revenue = RevenueConfig(project: "Studio", amount: 3900,
+                                daily: [1, 2, 3], range: .sevenDay, currency: "€")
+    if let data = try? JSONEncoder().encode(revenue),
+       let decoded = try? JSONDecoder().decode(RevenueConfig.self, from: data),
+       let snapshot = ManualProvider(config: decoded).load() {
+        check("revenue-config-roundtrip", "\(decoded == revenue)", "true")
+        check("revenue-range-label", snapshot.range.label, "7D")
+        check("revenue-provider-loads", snapshot.project, "Studio")
+        check("revenue-amount", DockFormatters.compactCurrency(snapshot.amount,
+                                                             symbol: snapshot.currency),
+              "€3.9K")
+    } else {
+        check("revenue-config-roundtrip", "gagal", "lolos")
+    }
+    check("revenue-remote-empty", RemoteProvider().isConfigured ? "ada" : "kosong", "kosong")
+    check("revenue-manual-missing",
+          ManualProvider(config: nil).load() == nil ? "kosong" : "ada", "kosong")
+}
+checkStockRevenueConfig()
 
 if failures > 0 {
     print("\(failures) GAGAL")

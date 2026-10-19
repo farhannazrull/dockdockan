@@ -16,26 +16,33 @@ Kalender+Join | baterai perangkat | revenue | note | divider | app paged + handl
 open SecondDock.app
 ```
 
-Config: `~/Library/Application Support/SecondDock/config.json`
-(`order`, `apps` = bundle ID, `folderPath`, `city`, `stockSymbol`,
-`noteText`, `revenue*`, `useLiveData`).
+Config di `~/Library/Application Support/SecondDock/`:
 
-- `useLiveData: true` (default) = data ASLI: saham Yahoo, lagu yang berbunyi,
-  event EventKit (minta izin sekali). `false` = mock referensi.
+- `dock.json` — app yang di-pin + folder.
+- `note.txt` — isi note.
+- `stock.json` — simbol saham (default `AAPL`).
+- `revenue.json` — project, amount, daily, range, currency.
+- API key (bila provider membutuhkannya) disimpan di **Keychain**, bukan file.
+
+- Saham: Yahoo Finance (gratis, tanpa key). Refresh 60 detik saat bursa AS
+  buka, 15 menit di luar jam bursa, dan saat Mac bangun. Gagal refresh =
+  nilai terakhir tetap tampil redup + ikon jam.
 - Now Playing: MediaRemote (private framework) dulu, lalu fallback AppleScript
   ke Music/Spotify. Kontrol (prev/play/next) lewat AppleScript yang sama.
   Izin Automation ditolak = kartu menampilkan "Nothing playing" + Open Music.
 - Baterai: perangkat Bluetooth real (IORegistry) + baterai internal Mac (pmset).
   Badge Messages disembunyikan (tidak ada API resmi; tanpa tebakan angka).
-  Revenue/note dari file config kamu sendiri + editor di dalam app.
+- Revenue: sumber manual (form) untuk sekarang; `RemoteProvider` masih stub.
+  Sparkline hanya tampil bila ada minimal 2 titik data.
 
-Ikon ◫ di menu bar: Refresh Dock, Launch at Login, Quit.
+Ikon ◫ di menu bar: Stock symbol..., Revenue..., ukuran dock, Focus length,
+Launch at Login, Quit.
 
 ## Verifikasi tiap step
 
 ```bash
-swift build                 # harus "Build complete", tanpa warning
-swift run FormatterChecks   # 14 cek formatter, harus SEMUA LOLOS
+swift build                 # harus "Build complete"
+swift run FormatterChecks   # semua cek formatter harus LOLOS
 ```
 
 ## Penyimpangan sadar dari spek awal
@@ -65,7 +72,6 @@ swift run FormatterChecks   # 14 cek formatter, harus SEMUA LOLOS
 
 ## Roadmap (phase 2, protokol sudah siap)
 
-`StockService`/`CalendarService`/`BatteryService` tinggal ditempeli
-implementasi real: Finnhub key untuk saham, private Bluetooth API untuk
-baterai AirPods, token untuk revenue API. Now Playing sudah real (MediaRemote
-+ AppleScript).
+`QuoteProvider`/`RevenueProvider` memudahkan penggantian sumber. Yang belum
+real: `RemoteProvider` revenue (stub) dan baterai AirPods (butuh API privat
+Bluetooth). Saham, Now Playing, kalender, dan baterai Mac/BT sudah real.

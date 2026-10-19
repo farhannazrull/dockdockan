@@ -43,16 +43,17 @@ public enum DockFormatters {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    /// 3900 -> "$3.9K", 2400 -> "$2.4K", 999 -> "$999", 1_200_000 -> "$1.2M"
-    public static func compactCurrency(_ value: Double) -> String {
+    /// 3900 -> "$3.9K", 2400 -> "$2.4K", 999 -> "$999", 1_200_000 -> "$1.2M".
+    /// Simbol mata uang bisa diganti (mis. "Rp", "€").
+    public static func compactCurrency(_ value: Double, symbol: String = "$") -> String {
         let absV = abs(value)
         let sign = value < 0 ? "-" : ""
         if absV >= 1_000_000 {
-            return String(format: "$%@%.1fM", sign, absV / 1_000_000)
+            return String(format: "%@%@%.1fM", sign, symbol, absV / 1_000_000)
         }
         if absV >= 1000 {
-            return String(format: "$%@%.1fK", sign, absV / 1000)
+            return String(format: "%@%@%.1fK", sign, symbol, absV / 1000)
         }
-        return String(format: "$%@%.0f", sign, absV)
+        return String(format: "%@%@%.0f", sign, symbol, absV)
     }
 }
