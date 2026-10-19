@@ -135,6 +135,22 @@ func checkDockConfig() {
 }
 MainActor.assumeIsolated { checkDockConfig() }
 
+// Note harus benar-benar bertahan di note.txt, bukan cuma di memori.
+@MainActor
+func checkNotePersistence() {
+    let marker = "check-\(Int(Date().timeIntervalSince1970))"
+    let vm = NoteViewModel()
+    vm.update(marker)
+    vm.save()
+    let reloaded = NoteViewModel()
+    check("note-roundtrip", reloaded.text, marker)
+    check("note-not-empty", reloaded.isEmpty ? "kosong" : "ada", "ada")
+    // Dikosongkan lagi supaya tidak meninggalkan isi tes di file user.
+    vm.update("")
+    vm.save()
+}
+MainActor.assumeIsolated { checkNotePersistence() }
+
 if failures > 0 {
     print("\(failures) GAGAL")
     exit(1)

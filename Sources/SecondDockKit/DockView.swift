@@ -57,18 +57,34 @@ public struct DockView: View {
     @ObservedObject private var calendar: CalendarViewModel
     @ObservedObject private var battery: BatteryViewModel
     @ObservedObject private var store: DockStore
+    @ObservedObject private var note: NoteViewModel
 
     public init(focus: FocusViewModel = FocusViewModel.preview,
                 calendar: CalendarViewModel = CalendarViewModel.preview,
                 battery: BatteryViewModel = BatteryViewModel.preview,
-                store: DockStore = DockStore.preview) {
+                store: DockStore = DockStore.preview,
+                note: NoteViewModel = NoteViewModel.preview) {
         _focus = ObservedObject(wrappedValue: focus)
         _calendar = ObservedObject(wrappedValue: calendar)
         _battery = ObservedObject(wrappedValue: battery)
         _store = ObservedObject(wrappedValue: store)
+        _note = ObservedObject(wrappedValue: note)
     }
 
     public var body: some View {
+        // Ruang di atas hanya muncul saat mengedit: panel memanjang ke atas
+        // sehingga posisi bar di layar tidak bergeser.
+        VStack(spacing: 0) {
+            if note.isEditing {
+                Color.clear.frame(height: theme.s(92))
+            }
+            bar
+        }
+        .fixedSize(horizontal: true, vertical: true)
+        .padding(.vertical, theme.s(12))
+    }
+
+    private var bar: some View {
         ZStack {
             GlassBackground()
                 .shadow(color: Color.black.opacity(0.35),
@@ -102,7 +118,7 @@ public struct DockView: View {
                 BatteryWidget(rings: battery.rings)
                     .onAppear { battery.appear() }
                 RevenueWidget(label: "Studio", value: "$3.9K", points: PreviewData.sparkRevenue)
-                NoteWidget(line1: "Ship it.", line2: "Take a walk.")
+                NoteWidget(note: note)
                 DividerTile()
                 PagedAppsView(apps: store.pagedApps, store: store)
             }
@@ -111,8 +127,6 @@ public struct DockView: View {
             .padding(.vertical, theme.cardPadding)
         }
         .frame(height: theme.barHeight)
-        .fixedSize(horizontal: true, vertical: true)
-        .padding(.vertical, theme.s(12))
     }
 }
 

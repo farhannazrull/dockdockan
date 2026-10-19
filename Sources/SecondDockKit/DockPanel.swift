@@ -21,7 +21,11 @@ public final class DockPanel: NSPanel {
 
     public required init?(coder: NSCoder) { fatalError("init(coder:) tidak dipakai") }
 
-    public override var canBecomeKey: Bool { false }
+    /// Panel nonactivating secara default; hanya menyala saat Note diedit
+    /// supaya Dock tidak pernah merebut fokus dari app yang sedang dipakai.
+    public var acceptsKey = false
+
+    public override var canBecomeKey: Bool { acceptsKey }
     public override var canBecomeMain: Bool { false }
 }
 
@@ -31,10 +35,23 @@ public final class DockPanelController {
     public let calendar = CalendarViewModel()
     public let battery = BatteryViewModel()
     public let store = DockStore()
+    public let note = NoteViewModel()
     private var panel: DockPanel?
     var onRefresh: (() -> Void)?
 
-    public init() {}
+    public init() {
+        note.onEditingChange = { [weak self] editing in
+            MainActor.assumeIsolated {
+                guard let panel = self?.panel else { return }
+                panel.acceptsKey = editing
+                if editing {
+                    panel.makeKeyAndOrderFront(nil)
+                } else {
+                    panel.resignKey()
+                }
+            }
+        }
+    }
 
     public func show() {
         if panel == nil {
@@ -55,9 +72,10 @@ public final class DockPanelController {
     @MainActor static func measure(scale: Double, focus: FocusViewModel = .preview,
                                    calendar: CalendarViewModel = .preview,
                                    battery: BatteryViewModel = .preview,
-                                   store: DockStore = .preview) -> NSSize {
+                                   store: DockStore = .preview,
+                                   note: NoteViewModel = .preview) -> NSSize {
         let host = NSHostingView(
-            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store)
+            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note)
                 .environment(\.theme, Theme(scale: scale)))
         host.layoutSubtreeIfNeeded()
         return host.fittingSize
@@ -83,14 +101,14 @@ public final class DockPanelController {
         // masih > maxW — kalau tidak, loop habis tanpa pernah menerapkan frame.
         for _ in 0 ..< 4 {
             size = Self.measure(scale: effective, focus: focus, calendar: calendar,
-                                   battery: battery, store: store)
+                                   battery: battery, store: store, note: note)
             if size.width <= maxW { break }
             effective = max(0.4, effective * maxW / size.width)
         }
         // contentView dulu: assigning contentView menimpa ukuran window,
         // jadi harus sebelum setFrame agar hasil animasi tidak ketimpa.
         panel.contentView = NSHostingView(
-            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store)
+            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note)
                 .environment(\.theme, Theme(scale: effective))
         )
         animate(panel, to: size, scale: effective)
