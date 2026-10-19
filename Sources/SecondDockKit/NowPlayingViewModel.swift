@@ -44,6 +44,8 @@ public final class NowPlayingViewModel: ObservableObject {
     private var poll: Timer?
     private var observers: [NSObjectProtocol] = []
     private var didAppear = false
+    private var artworkKey = ""
+    private var artworkTask: Task<Void, Never>?
 
     // Interpolasi posisi.
     private var basePosition: Double = 0
@@ -58,6 +60,7 @@ public final class NowPlayingViewModel: ObservableObject {
     deinit {
         tick?.invalidate()
         poll?.invalidate()
+        artworkTask?.cancel()
         for token in observers {
             NSWorkspace.shared.notificationCenter.removeObserver(token)
         }
@@ -116,6 +119,25 @@ public final class NowPlayingViewModel: ObservableObject {
         applyAppleScript()
     }
 
+    /// Ambil sampul sekali per lagu, di luar main thread.
+    private func loadArtwork(for info: AppleScriptSource.Info) {
+        let key = "\(info.source)|\(info.artist)|\(info.title)"
+        guard key != artworkKey else { return }
+        artworkKey = key
+        artworkTask?.cancel()
+        track?.artwork = nil
+        artworkTask = Task { [weak self] in
+            let data = await Task.detached(priority: .utility) {
+                AppleScriptSource.artworkData(for: info.source)
+            }.value
+            guard let data, let image = NSImage(data: data) else { return }
+            await MainActor.run {
+                guard let self, self.artworkKey == key else { return }
+                self.track?.artwork = image
+            }
+        }
+    }
+
     private func apply(_ info: [String: Any]) {
         let title = (info["kMRMediaRemoteNowPlayingInfoTitle"] as? String)
             ?? (info["title"] as? String) ?? ""
@@ -156,11 +178,13 @@ public final class NowPlayingViewModel: ObservableObject {
                 isPlaying = false
                 duration = 0
             }
+            artworkKey = ""
             return
         }
         track = NowPlayingTrack(title: info.title, artist: info.artist,
                                 artwork: info.artwork, elapsed: info.elapsed,
                                 duration: info.duration, isPlaying: info.isPlaying)
+        loadArtwork(for: info)
         duration = info.duration
         basePosition = info.elapsed
         baseRate = info.isPlaying ? 1 : 0

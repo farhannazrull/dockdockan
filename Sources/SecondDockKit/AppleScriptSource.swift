@@ -3,6 +3,11 @@ import Foundation
 
 /// Cadangan AppleScript untuk Music.app dan Spotify.
 enum AppleScriptSource {
+    enum Source {
+        case music
+        case spotify
+    }
+
     struct Info {
         var title: String
         var artist: String
@@ -10,6 +15,7 @@ enum AppleScriptSource {
         var elapsed: Double
         var duration: Double
         var isPlaying: Bool
+        var source: Source
     }
 
     /// Dijalankan sekali saja; sesudahnya izin sudah diberikan dan tidak
@@ -82,7 +88,47 @@ enum AppleScriptSource {
         guard let f = fields(from: source, count: 5), !text(f[0]).isEmpty else { return nil }
         return Info(title: text(f[0]), artist: text(f[1]), artwork: nil,
                     elapsed: number(f[3]), duration: number(f[2]),
-                    isPlaying: text(f[4]) == "playing")
+                    isPlaying: text(f[4]) == "playing", source: .music)
+    }
+
+    /// Data gambar sampul. Dipanggil di luar main thread dan hanya saat lagu
+    /// berganti, karena payload-nya besar (ratusan KB).
+    static func artworkData(for source: Source) -> Data? {
+        switch source {
+        case .music: return musicArtwork()
+        case .spotify: return spotifyArtwork()
+        }
+    }
+
+    private static func musicArtwork() -> Data? {
+        let source = """
+        tell application "Music"
+            set t to current track
+            if (count of artworks of t) is 0 then return ""
+            return data of artwork 1 of t
+        end tell
+        """
+        guard let script = NSAppleScript(source: source) else { return nil }
+        var error: NSDictionary?
+        let descriptor = script.executeAndReturnError(&error)
+        if let error, (error[NSAppleScript.errorNumber] as? Int ?? 0) != 0 { return nil }
+        let data = descriptor.data
+        guard data.count > 100 else { return nil }
+        return data
+    }
+
+    private static func spotifyArtwork() -> Data? {
+        let source = """
+        tell application "Spotify"
+            return artwork url of current track
+        end tell
+        """
+        guard let script = NSAppleScript(source: source) else { return nil }
+        var error: NSDictionary?
+        let descriptor = script.executeAndReturnError(&error)
+        if let error, (error[NSAppleScript.errorNumber] as? Int ?? 0) != 0 { return nil }
+        guard let raw = descriptor.stringValue, let url = URL(string: raw) else { return nil }
+        return try? Data(contentsOf: url)
     }
 
     private static func spotify() -> Info? {
@@ -97,6 +143,7 @@ enum AppleScriptSource {
         """
         guard let f = fields(from: source, count: 5), !text(f[0]).isEmpty else { return nil }
         return Info(title: text(f[0]), artist: text(f[1]), artwork: nil,
-                    elapsed: number(f[3]), duration: number(f[2]), isPlaying: true)
+                    elapsed: number(f[3]), duration: number(f[2]), isPlaying: true,
+                    source: .spotify)
     }
 }
