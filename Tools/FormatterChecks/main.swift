@@ -119,6 +119,22 @@ func checkBatteryTone() {
 }
 MainActor.assumeIsolated { checkBatteryTone() }
 
+// Persistensi dock.json harus bertahan utuh lewat encode/decode.
+@MainActor
+func checkDockConfig() {
+    let original = DockConfig(pinned: ["com.apple.finder", "com.apple.Safari"],
+                              folderPath: "/tmp/Projects")
+    guard let data = try? JSONEncoder().encode(original),
+          let decoded = try? JSONDecoder().decode(DockConfig.self, from: data) else {
+        check("dock-config-roundtrip", "gagal", "lolos")
+        return
+    }
+    check("dock-config-roundtrip", "\(decoded == original)", "true")
+    check("dock-config-defaults", DockConfig.defaults.pinned.count > 0 ? "ada" : "kosong", "ada")
+    check("dock-config-json", data.isEmpty ? "kosong" : "isi", "isi")
+}
+MainActor.assumeIsolated { checkDockConfig() }
+
 if failures > 0 {
     print("\(failures) GAGAL")
     exit(1)

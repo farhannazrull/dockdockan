@@ -1,18 +1,21 @@
 import AppKit
 import SwiftUI
 
-/// Ikon app 40pt dari bundle ID + titik running + badge + bounce.
-/// Hilang = dim + tooltip "not installed". Tanpa badge alias.
+/// Ikon app dari bundle ID + titik running + badge + bounce + menu konteks.
 struct AppIcon: View {
     let bundleID: String
     var badge: Int?
-    var running = true
-    var dimmed = false
+    var isRunning = true
+    var isInstalled = true
     var onOpen: () -> Void = {}
+    var onReveal: () -> Void = {}
+    var onRemove: () -> Void = {}
 
     @Environment(\.theme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounce = false
+
+    private var displayName: String { Self.displayName(for: bundleID) }
 
     var body: some View {
         VStack(spacing: theme.s(5)) {
@@ -31,7 +34,7 @@ struct AppIcon: View {
                     }
                 }
                 .opacity(Self.isFigma(bundleID) && Self.icon(for: bundleID) == nil
-                         ? 1 : (dimmed || Self.url(for: bundleID) == nil ? 0.45 : 1))
+                         ? 1 : (isInstalled ? 1 : 0.45))
                 .scaleEffect(bounce ? 1.25 : 1)
                 if let badge, badge > 0 {
                     Text("\(min(badge, 99))")
@@ -44,30 +47,30 @@ struct AppIcon: View {
                 }
             }
             Circle()
-                .fill(running ? Color.white : Color.clear)
+                .fill(isRunning ? Color.white : Color.clear)
                 .frame(width: theme.s(5), height: theme.s(5))
         }
-        .help(Self.url(for: bundleID) == nil
-            ? "\(Self.displayName(for: bundleID)) (not installed)"
-            : Self.displayName(for: bundleID))
+        .help(isInstalled ? displayName : "\(displayName) — Not installed")
         .onTapGesture {
+            guard isInstalled else { return }
             if !reduceMotion {
                 bounce = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { bounce = false }
             }
             onOpen()
         }
+        .contextMenu {
+            Button("Open") { guard isInstalled else { return }; onOpen() }
+                .disabled(!isInstalled)
+            Button("Show in Finder") { onReveal() }
+                .disabled(!isInstalled)
+            Button("Remove from dock") { onRemove() }
+        }
     }
 
     static func isFigma(_ bundleID: String) -> Bool { bundleID == "com.figma.Desktop" }
 
-    static func url(for bundleID: String) -> URL? {
-        if bundleID == "com.apple.finder" {
-            let finder = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
-            if FileManager.default.fileExists(atPath: finder.path) { return finder }
-        }
-        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
-    }
+    static func url(for bundleID: String) -> URL? { DockStore.url(for: bundleID) }
 
     static func icon(for bundleID: String) -> NSImage? {
         guard let url = url(for: bundleID) else { return nil }
@@ -80,11 +83,6 @@ struct AppIcon: View {
             if !name.isEmpty { return name.replacingOccurrences(of: ".app", with: "") }
         }
         return bundleID.split(separator: ".").last.map(String.init) ?? bundleID
-    }
-
-    static func launch(bundleID: String) {
-        guard let url = url(for: bundleID) else { return }
-        NSWorkspace.shared.open(url)
     }
 }
 
@@ -140,6 +138,7 @@ struct HandleTile: View {
 /// Area app paged: 2 per halaman + chevron + handle.
 struct PagedAppsView: View {
     let apps: [String]
+    var store: DockStore?
     @State private var page = 0
     private let pageSize = 2
 
@@ -152,7 +151,14 @@ struct PagedAppsView: View {
         let visible = Array(apps.dropFirst(current * pageSize).prefix(pageSize))
         HStack(spacing: theme.s(12)) {
             ForEach(visible, id: \.self) { bundleID in
-                AppIcon(bundleID: bundleID)
+                AppIcon(
+                    bundleID: bundleID,
+                    isRunning: store?.isRunning(bundleID) ?? true,
+                    isInstalled: store?.isInstalled(bundleID) ?? true,
+                    onOpen: { store?.launch(bundleID) },
+                    onReveal: { store?.reveal(bundleID) },
+                    onRemove: { store?.remove(bundleID: bundleID) }
+                )
             }
             Button {
                 if current > 0 { page = current - 1 }

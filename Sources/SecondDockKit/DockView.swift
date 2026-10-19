@@ -56,13 +56,16 @@ public struct DockView: View {
     @ObservedObject private var focus: FocusViewModel
     @ObservedObject private var calendar: CalendarViewModel
     @ObservedObject private var battery: BatteryViewModel
+    @ObservedObject private var store: DockStore
 
     public init(focus: FocusViewModel = FocusViewModel.preview,
                 calendar: CalendarViewModel = CalendarViewModel.preview,
-                battery: BatteryViewModel = BatteryViewModel.preview) {
+                battery: BatteryViewModel = BatteryViewModel.preview,
+                store: DockStore = DockStore.preview) {
         _focus = ObservedObject(wrappedValue: focus)
         _calendar = ObservedObject(wrappedValue: calendar)
         _battery = ObservedObject(wrappedValue: battery)
+        _store = ObservedObject(wrappedValue: store)
     }
 
     public var body: some View {
@@ -71,11 +74,13 @@ public struct DockView: View {
                 .shadow(color: Color.black.opacity(0.35),
                         radius: theme.s(18), x: 0, y: theme.s(6))
             HStack(spacing: theme.s(16)) {
-                AppIcon(bundleID: "com.apple.finder", running: true)
+                appIcon(store.leadingApps.first ?? "com.apple.finder")
                 StockWidget(symbol: "AAPL", price: "333.08", change: "+0.24%",
                             points: PreviewData.sparkAAPL)
-                FolderTile(letter: "P", path: NSHomeDirectory() + "/Projects")
-                AppIcon(bundleID: "com.apple.MobileSMS", badge: 3, running: false)
+                FolderTile(letter: "P", path: store.folderPath,
+                           onOpen: { store.openFolder() })
+                appIcon(store.leadingApps.count > 1 ? store.leadingApps[1] : "",
+                        badge: store.badgeCount)
                 NowPlayingWidget(title: "The Entertainer", artist: "Scott Joplin",
                                  elapsed: "0:00", total: "5:06", fraction: 0, isPlaying: false)
                 FocusWidget(remaining: focus.remainingText,
@@ -99,7 +104,7 @@ public struct DockView: View {
                 RevenueWidget(label: "Studio", value: "$3.9K", points: PreviewData.sparkRevenue)
                 NoteWidget(line1: "Ship it.", line2: "Take a walk.")
                 DividerTile()
-                PagedAppsView(apps: ["com.apple.Safari", "com.figma.Desktop"])
+                PagedAppsView(apps: store.pagedApps, store: store)
             }
             .padding(.leading, theme.s(16))
             .padding(.trailing, theme.s(18))
@@ -108,6 +113,24 @@ public struct DockView: View {
         .frame(height: theme.barHeight)
         .fixedSize(horizontal: true, vertical: true)
         .padding(.vertical, theme.s(12))
+    }
+}
+
+extension DockView {
+    @ViewBuilder
+    private func appIcon(_ bundleID: String, badge: Int? = nil) -> some View {
+        if !bundleID.isEmpty {
+            AppIcon(
+                bundleID: bundleID,
+                badge: badge,
+                isRunning: store.isRunning(bundleID),
+                isInstalled: store.isInstalled(bundleID),
+                onOpen: { store.launch(bundleID) },
+                onReveal: { store.reveal(bundleID) },
+                onRemove: { store.remove(bundleID: bundleID) }
+            )
+            .onAppear { store.appear() }
+        }
     }
 }
 
