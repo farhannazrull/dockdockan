@@ -30,20 +30,6 @@ struct NowPlayingWidget: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(width: theme.s(128), alignment: .leading)
-                        Spacer(minLength: theme.s(8))
-                        Button(action: onOpenMusic) {
-                            Text("Open Music")
-                                .font(theme.font(11, .semibold))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                                .padding(.horizontal, theme.s(8))
-                                .padding(.vertical, theme.s(4))
-                                .background(Color.white.opacity(0.18))
-                                .clipShape(Capsule(style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .fixedSize(horizontal: true, vertical: false)
                     } else {
                         VStack(alignment: .leading, spacing: 0) {
                             Text(title)
@@ -59,8 +45,18 @@ struct NowPlayingWidget: View {
                                 .help(artist)
                         }
                         .frame(width: theme.s(128), alignment: .leading)
-                        Spacer(minLength: theme.s(8))
+                    }
+                    Spacer(minLength: theme.s(8))
+                    // Kontrol selalu ada (transparan saat kosong) supaya lebar
+                    // kartu tidak berubah saat lagu berhenti.
+                    ZStack(alignment: .trailing) {
                         controls
+                            .opacity(isEmpty ? 0 : 1)
+                            .allowsHitTesting(!isEmpty)
+                            .accessibilityHidden(isEmpty)
+                        if isEmpty {
+                            openMusicButton
+                        }
                     }
                 }
                 if !isEmpty {
@@ -99,6 +95,21 @@ struct NowPlayingWidget: View {
         .foregroundStyle(.white)
     }
 
+    private var openMusicButton: some View {
+        Button(action: onOpenMusic) {
+            Text("Open Music")
+                .font(theme.font(11, .semibold))
+                .foregroundStyle(theme.primaryGlyph(scheme))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, theme.s(8))
+                .padding(.vertical, theme.s(4))
+                .background(theme.primaryGlyph(scheme).opacity(0.14))
+                .clipShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var artworkView: some View {
         ZStack {
             RoundedRectangle(cornerRadius: theme.s(6), style: .continuous)
@@ -113,7 +124,7 @@ struct NowPlayingWidget: View {
             } else {
                 Image(systemName: "music.note")
                     .font(theme.font(14))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(theme.primaryGlyph(scheme).opacity(0.75))
             }
         }
     }
