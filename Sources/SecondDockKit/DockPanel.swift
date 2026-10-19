@@ -36,6 +36,7 @@ public final class DockPanelController {
     public let battery = BatteryViewModel()
     public let store = DockStore()
     public let note = NoteViewModel()
+    public let nowPlaying = NowPlayingViewModel()
     private var panel: DockPanel?
     var onRefresh: (() -> Void)?
 
@@ -73,9 +74,10 @@ public final class DockPanelController {
                                    calendar: CalendarViewModel = .preview,
                                    battery: BatteryViewModel = .preview,
                                    store: DockStore = .preview,
-                                   note: NoteViewModel = .preview) -> NSSize {
+                                   note: NoteViewModel = .preview,
+                                   nowPlaying: NowPlayingViewModel = .preview) -> NSSize {
         let host = NSHostingView(
-            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note)
+            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note, nowPlaying: nowPlaying)
                 .environment(\.theme, Theme(scale: scale)))
         host.layoutSubtreeIfNeeded()
         return host.fittingSize
@@ -101,14 +103,14 @@ public final class DockPanelController {
         // masih > maxW — kalau tidak, loop habis tanpa pernah menerapkan frame.
         for _ in 0 ..< 4 {
             size = Self.measure(scale: effective, focus: focus, calendar: calendar,
-                                   battery: battery, store: store, note: note)
+                                   battery: battery, store: store, note: note, nowPlaying: nowPlaying)
             if size.width <= maxW { break }
             effective = max(0.4, effective * maxW / size.width)
         }
         // contentView dulu: assigning contentView menimpa ukuran window,
         // jadi harus sebelum setFrame agar hasil animasi tidak ketimpa.
         panel.contentView = NSHostingView(
-            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note)
+            rootView: DockView(focus: focus, calendar: calendar, battery: battery, store: store, note: note, nowPlaying: nowPlaying)
                 .environment(\.theme, Theme(scale: effective))
         )
         animate(panel, to: size, scale: effective)

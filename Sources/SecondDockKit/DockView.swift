@@ -58,17 +58,20 @@ public struct DockView: View {
     @ObservedObject private var battery: BatteryViewModel
     @ObservedObject private var store: DockStore
     @ObservedObject private var note: NoteViewModel
+    @ObservedObject private var nowPlaying: NowPlayingViewModel
 
     public init(focus: FocusViewModel = FocusViewModel.preview,
                 calendar: CalendarViewModel = CalendarViewModel.preview,
                 battery: BatteryViewModel = BatteryViewModel.preview,
                 store: DockStore = DockStore.preview,
-                note: NoteViewModel = NoteViewModel.preview) {
+                note: NoteViewModel = NoteViewModel.preview,
+                nowPlaying: NowPlayingViewModel = NowPlayingViewModel.preview) {
         _focus = ObservedObject(wrappedValue: focus)
         _calendar = ObservedObject(wrappedValue: calendar)
         _battery = ObservedObject(wrappedValue: battery)
         _store = ObservedObject(wrappedValue: store)
         _note = ObservedObject(wrappedValue: note)
+        _nowPlaying = ObservedObject(wrappedValue: nowPlaying)
     }
 
     public var body: some View {
@@ -97,8 +100,22 @@ public struct DockView: View {
                            onOpen: { store.openFolder() })
                 appIcon(store.leadingApps.count > 1 ? store.leadingApps[1] : "",
                         badge: store.badgeCount)
-                NowPlayingWidget(title: "The Entertainer", artist: "Scott Joplin",
-                                 elapsed: "0:00", total: "5:06", fraction: 0, isPlaying: false)
+                NowPlayingWidget(
+                    title: nowPlaying.track?.title ?? "Nothing playing",
+                    artist: nowPlaying.track?.artist ?? "",
+                    artwork: nowPlaying.track?.artwork,
+                    elapsedText: DockFormatters.countdown(Int(nowPlaying.elapsed.rounded())),
+                    totalText: DockFormatters.countdown(Int(nowPlaying.durationText.rounded())),
+                    fraction: nowPlaying.progressFraction,
+                    isPlaying: nowPlaying.isPlaying,
+                    isEmpty: nowPlaying.track == nil,
+                    onPrevious: { nowPlaying.previous() },
+                    onToggle: { nowPlaying.toggle() },
+                    onNext: { nowPlaying.next() },
+                    onSeek: { nowPlaying.seek(to: $0) },
+                    onOpenMusic: { nowPlaying.openMusic() }
+                )
+                .onAppear { nowPlaying.appear() }
                 FocusWidget(remaining: focus.remainingText,
                               progress: focus.progress,
                               label: focus.label,

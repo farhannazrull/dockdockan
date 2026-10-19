@@ -11,6 +11,7 @@
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSCalendarsFullAccessUsageDescription</key><string>SecondDock menampilkan event kalender di dock.</string>
+  <key>NSAppleEventsUsageDescription</key><string>SecondDock mengendalikan Music.app dan Spotify untuk menampilkan serta mengubah pemutaran.</string>
   <key>NSBluetoothAlwaysUsageDescription</key><string>SecondDock membaca level baterai perangkat Bluetooth yang terhubung untuk menampilkannya di dock.</string>
   <key>NSRemindersFullAccessUsageDescription</key><string>SecondDock menampilkan reminder di dock.</string>
 </dict>

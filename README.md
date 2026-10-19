@@ -22,6 +22,9 @@ Config: `~/Library/Application Support/SecondDock/config.json`
 
 - `useLiveData: true` (default) = data ASLI: saham Yahoo, lagu yang berbunyi,
   event EventKit (minta izin sekali). `false` = mock referensi.
+- Now Playing: MediaRemote (private framework) dulu, lalu fallback AppleScript
+  ke Music/Spotify. Kontrol (prev/play/next) lewat AppleScript yang sama.
+  Izin Automation ditolak = kartu menampilkan "Nothing playing" + Open Music.
 - Baterai: perangkat Bluetooth real (IORegistry) + baterai internal Mac (pmset).
   Badge Messages disembunyikan (tidak ada API resmi; tanpa tebakan angka).
   Revenue/note dari file config kamu sendiri + editor di dalam app.
@@ -62,6 +65,7 @@ swift run FormatterChecks   # 14 cek formatter, harus SEMUA LOLOS
 
 ## Roadmap (phase 2, protokol sudah siap)
 
-`StockService`/`MediaService`/`CalendarService`/`BatteryService` tinggal
-ditempeli implementasi real: Finnhub key untuk saham, MediaRemote untuk
-Now Playing, private Bluetooth API untuk baterai AirPods, token untuk revenue API.
+`StockService`/`CalendarService`/`BatteryService` tinggal ditempeli
+implementasi real: Finnhub key untuk saham, private Bluetooth API untuk
+baterai AirPods, token untuk revenue API. Now Playing sudah real (MediaRemote
++ AppleScript).
