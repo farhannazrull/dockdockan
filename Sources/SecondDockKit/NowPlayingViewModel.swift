@@ -41,6 +41,7 @@ public final class NowPlayingViewModel: ObservableObject {
 
     private let mediaRemote: MediaRemoteBridge
     private var tick: Timer?
+    private var poll: Timer?
     private var observers: [NSObjectProtocol] = []
     private var didAppear = false
 
@@ -56,7 +57,10 @@ public final class NowPlayingViewModel: ObservableObject {
 
     deinit {
         tick?.invalidate()
-        for token in observers { NotificationCenter.default.removeObserver(token) }
+        poll?.invalidate()
+        for token in observers {
+            NSWorkspace.shared.notificationCenter.removeObserver(token)
+        }
     }
 
     public func appear() {
@@ -64,6 +68,7 @@ public final class NowPlayingViewModel: ObservableObject {
         didAppear = true
         refresh()
         startTicking()
+        startPolling()
         observeSystemNowPlaying()
     }
 
@@ -84,6 +89,15 @@ public final class NowPlayingViewModel: ObservableObject {
         }
         RunLoop.main.add(t, forMode: .common)
         tick = t
+    }
+
+    private func startPolling() {
+        poll?.invalidate()
+        let t = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        poll = t
     }
 
     /// Interpolasi halus di antara pembaruan resmi.
